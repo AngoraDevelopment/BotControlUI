@@ -11,7 +11,8 @@ import SwiftUI
 struct BotControlUIApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AssistantShellView()
         }
+        .windowResizability(.contentSize)
     }
 }
