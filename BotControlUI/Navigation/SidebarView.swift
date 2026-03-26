@@ -64,10 +64,9 @@ struct SidebarView: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
             appLogo
-                .frame(width: 40, height: 40)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("OASIS Control")
+                Text("OpenAsis Control")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppTheme.textPrimary)
 
@@ -89,6 +88,7 @@ struct SidebarView: View {
                 .symbolEffect(.breathe.pulse.byLayer, options: .repeat(.continuous))
                 .font(Font.system(size: 32, weight: .regular))
             Circle()
+                .stroke(AppTheme.accent.opacity(0.38), lineWidth: 1)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -100,9 +100,6 @@ struct SidebarView: View {
                     )
                 )
                 .frame(width: 48, height: 48)
-            Circle()
-                .stroke(AppTheme.accent.opacity(0.38), lineWidth: 1)
-            
         }
         .shadow(color: AppTheme.accent.opacity(0.22), radius: 8, y: 4)
     }
