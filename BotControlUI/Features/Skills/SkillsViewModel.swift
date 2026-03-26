@@ -51,6 +51,7 @@ final class SkillsViewModel: ObservableObject {
             let folderPath = "\(skillsDirectory)/\(folderName)"
             let skillMarkdownPath = "\(folderPath)/SKILL.md"
             let configPath = "\(folderPath)/config.json"
+            let executorPath = "\(folderPath)/executor.js"
 
             guard fm.fileExists(atPath: skillMarkdownPath) else { return nil }
 
@@ -66,7 +67,10 @@ final class SkillsViewModel: ObservableObject {
                 description: description,
                 path: folderPath,
                 configPath: configPath,
-                isActive: isActive
+                isActive: isActive,
+                hasExecutor: fm.fileExists(atPath: executorPath),
+                hasConfig: fm.fileExists(atPath: configPath),
+                isReady: fm.fileExists(atPath: executorPath) && fm.fileExists(atPath: configPath) && fm.fileExists(atPath: skillMarkdownPath)
             )
         }
     }

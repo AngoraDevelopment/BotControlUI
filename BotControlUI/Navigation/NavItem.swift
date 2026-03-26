@@ -15,56 +15,113 @@ struct NavItem: View {
     @Binding var selection: SidebarRoute
     @State private var hovering = false
 
-    private var isSelected: Bool {
-        selection == route
-    }
-
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
-                .frame(width: 22)
-                .foregroundStyle(isSelected ? AppTheme.redAccent : AppTheme.textMuted)
+        HStack(spacing: 0) {
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    AppTheme.accent,
+                                    AppTheme.accent.opacity(0.3)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 3)
+                        .shadow(color: AppTheme.accent.opacity(0.6), radius: 6)
+                } else {
+                    Color.clear
+                        .frame(width: 3)
+                }
+            }
 
-            Text(title)
-                .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? AppTheme.textPrimary : AppTheme.textSecondary)
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .frame(width: 18)
 
-            Spacer()
+                Text(title)
+
+                Spacer()
+            }
+            .padding(10)
+            .background(background)
+            .foregroundStyle(foreground)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .contentShape(Rectangle())
+            .padding(.leading, 6)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-        .background(background)
-        .clipShape(RoundedRectangle(cornerRadius: 15))
-        .contentShape(Rectangle())
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        .animation(.easeInOut(duration: 0.15), value: hovering)
         .onHover { hovering = $0 }
         .onTapGesture {
             selection = route
         }
     }
 
+    private var isSelected: Bool {
+        selection == route
+    }
+
     @ViewBuilder
     private var background: some View {
         if isSelected {
-            RoundedRectangle(cornerRadius: 15)
-                .fill(AppTheme.redAccentSoft.opacity(0.50))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 15)
-                        .stroke(AppTheme.redAccentBorder, lineWidth: 2)
+            RoundedRectangle(cornerRadius: 10)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            AppTheme.accent.opacity(0.15),
+                            AppTheme.accent.opacity(0.05)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(AppTheme.accent.opacity(0.25), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
         } else if hovering {
-            RoundedRectangle(cornerRadius: 15)
-                .fill(Color.white.opacity(0.03))
+            RoundedRectangle(cornerRadius: 10)
+                .fill(AppTheme.panelBackgroundSoft)
         } else {
-            Color.clear
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.clear)
         }
     }
+
+    private var foreground: Color {
+        isSelected ? AppTheme.textPrimary : AppTheme.textSecondary
+    }
 }
+
 #Preview {
-    NavItem(
-        title: "Home",
-        icon: "house",
-        route: .chat,
-        selection: .constant(.chat)
-    )
+    VStack(spacing: 10) {
+        NavItem(
+            title: "Chat",
+            icon: "message",
+            route: .chat,
+            selection: .constant(.chat)
+        )
+
+        NavItem(
+            title: "Resumen",
+            icon: "chart.bar",
+            route: .summary,
+            selection: .constant(.chat)
+        )
+
+        NavItem(
+            title: "Habilidades",
+            icon: "bolt",
+            route: .skills,
+            selection: .constant(.chat)
+        )
+    }
+    .padding()
+    .frame(width: 260)
+    .background(AppTheme.sidebarBackground)
 }

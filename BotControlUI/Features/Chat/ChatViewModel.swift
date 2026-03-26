@@ -23,9 +23,9 @@ final class ChatViewModel: ObservableObject {
     @Published var telegramUserID: String = "unknown"
 
     private let configStore: AppConfigStore
+    private let selfImprovementStore = SelfImprovementStore()
     private let appMessagesKey = "mac_assistant_app_chat_messages"
     private let botRootPath = "/Users/edgardoramos/telegram-ollama-bot"
-    private let selfImprovementStore = SelfImprovementStore()
 
     init(configStore: AppConfigStore) {
         self.configStore = configStore
@@ -101,18 +101,37 @@ final class ChatViewModel: ObservableObject {
 
         draft = ""
 
-        if let skillReply = LocalSkillRouter.handle(trimmed) {
-            let assistantMessage = ChatMessage(role: .assistant, text: skillReply)
-            appMessages.append(assistantMessage)
-            saveAppMessages()
+        do {
+            let skillResponse = try await SkillRuntimeClient.execute(from: trimmed)
 
-            await MemorySyncService.appendLocalTurn(
-                userText: trimmed,
-                assistantText: skillReply
-            )
+            if skillResponse.matched, let skillResult = skillResponse.result {
+                let naturalReply = await ToolResponseComposer.compose(
+                    userText: trimmed,
+                    toolResult: skillResult,
+                    model: currentModel,
+                    botRootPath: botRootPath
+                )
 
-            detectAndStoreCorrection(from: trimmed)
-            return
+                let assistantMessage = ChatMessage(role: .assistant, text: naturalReply)
+                appMessages.append(assistantMessage)
+                saveAppMessages()
+
+                LastSkillExecutionStore.save(
+                    skill: skillResponse.skill ?? skillResult.tool,
+                    action: skillResult.action,
+                    ok: skillResult.ok
+                )
+
+                await MemorySyncService.appendLocalTurn(
+                    userText: trimmed,
+                    assistantText: naturalReply
+                )
+
+                detectAndStoreCorrection(from: trimmed)
+                return
+            }
+        } catch {
+            print("Skill runtime not available: \(error.localizedDescription)")
         }
 
         isThinking = true
@@ -144,42 +163,6 @@ final class ChatViewModel: ObservableObject {
         isThinking = false
     }
 
-    private func sanitizeAssistantReply(_ text: String) -> String {
-        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let bannedFragments = [
-            "[End of Interactive Scenario]",
-            "End of Interactive Scenario",
-            "Interactive Scenario"
-        ]
-
-        for fragment in bannedFragments {
-            cleaned = cleaned.replacingOccurrences(of: fragment, with: "")
-        }
-
-        let transcriptMarkers = [
-            "**Jefe:**",
-            "**Iris:**",
-            "Usuario:",
-            "Asistente:",
-            "User:",
-            "Assistant:"
-        ]
-
-        let transcriptCount = transcriptMarkers.reduce(0) { partial, marker in
-            partial + (cleaned.contains(marker) ? 1 : 0)
-        }
-
-        if transcriptCount >= 2 {
-            if let range = cleaned.range(of: "\n\n") {
-                cleaned = String(cleaned[..<range.lowerBound])
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-
-        return cleaned
-    }
-    
     private func persistModelSelection() {
         configStore.config.ollama.primaryModel = currentModel
         configStore.saveConfig()
@@ -246,7 +229,43 @@ final class ChatViewModel: ObservableObject {
 
         telegramMessages = decoded
     }
-    
+
+    private func sanitizeAssistantReply(_ text: String) -> String {
+        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let bannedFragments = [
+            "[End of Interactive Scenario]",
+            "End of Interactive Scenario",
+            "Interactive Scenario"
+        ]
+
+        for fragment in bannedFragments {
+            cleaned = cleaned.replacingOccurrences(of: fragment, with: "")
+        }
+
+        let transcriptMarkers = [
+            "**Jefe:**",
+            "**Iris:**",
+            "Usuario:",
+            "Asistente:",
+            "User:",
+            "Assistant:"
+        ]
+
+        let transcriptCount = transcriptMarkers.reduce(0) { partial, marker in
+            partial + (cleaned.contains(marker) ? 1 : 0)
+        }
+
+        if transcriptCount >= 2 {
+            if let range = cleaned.range(of: "\n\n") {
+                cleaned = String(cleaned[..<range.lowerBound])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+
+        return cleaned
+    }
+
     private func detectAndStoreCorrection(from userText: String) {
         guard let learnedRule = extractCorrectionRule(from: userText) else { return }
         selfImprovementStore.addCorrection(

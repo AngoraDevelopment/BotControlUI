@@ -10,10 +10,15 @@ import SwiftUI
 struct SidebarView: View {
     @Binding var selection: SidebarRoute
     @ObservedObject var botManager: BotProcessManager
+    @ObservedObject var skillRuntimeManager: SkillRuntimeProcessManager
 
     var body: some View {
         VStack(spacing: 0) {
             header
+
+            Divider()
+                .overlay(AppTheme.border)
+                .padding(.horizontal, 12)
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 26) {
@@ -44,91 +49,73 @@ struct SidebarView: View {
                         title: "AJUSTES",
                         items: []
                     )
-
-                    Divider()
-                        .overlay(AppTheme.border)
-                        .padding(.top, -6)
-
-                    docsRow
                 }
                 .padding(.horizontal, 18)
-                .padding(.top, 22)
+                .padding(.top, 20)
                 .padding(.bottom, 20)
             }
 
             footer
         }
-        .frame(width: 300)
+        .frame(width: 280)
         .background(AppTheme.sidebarBackground)
-        .overlay(
-            Rectangle()
-                .fill(AppTheme.border)
-                .frame(width: 1),
-            alignment: .trailing
-        )
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(AppTheme.panelBackground)
-                    .frame(width: 54, height: 54)
+        HStack(alignment: .center, spacing: 12) {
+            appLogo
+                .frame(width: 40, height: 40)
 
-                Image(systemName: "ladybug.fill")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(AppTheme.redAccent)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("CONTROL")
-                    .font(.system(size: 12, weight: .semibold))
-                    .tracking(1.8)
-                    .foregroundStyle(AppTheme.textSecondary)
-
-                Text("AngoraDev")
-                    .font(.system(size: 18, weight: .bold))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("OASIS Control")
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppTheme.textPrimary)
+
+                Text("Angora Dev Team")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
             }
 
             Spacer()
-
-            ZStack {
-                Circle()
-                    .fill(AppTheme.panelBackground)
-                    .frame(width: 54, height: 54)
-                    .overlay(
-                        Circle().stroke(AppTheme.borderStrong, lineWidth: 1)
-                    )
-
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(AppTheme.textSecondary)
-            }
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 18)
-        .padding(.bottom, 10)
+        .padding(.horizontal, 16)
+        .padding(.top, 20)
+        .padding(.bottom, 16)
+    }
+
+    private var appLogo: some View {
+        ZStack {
+            Image(systemName: "apple.meditate.circle.fill")
+                .symbolEffect(.breathe.pulse.byLayer, options: .repeat(.continuous))
+                .font(Font.system(size: 32, weight: .regular))
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            AppTheme.accent.opacity(0.28),
+                            AppTheme.accent.opacity(0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 48, height: 48)
+            Circle()
+                .stroke(AppTheme.accent.opacity(0.38), lineWidth: 1)
+            
+        }
+        .shadow(color: AppTheme.accent.opacity(0.22), radius: 8, y: 4)
     }
 
     private func navSection(title: String, items: [(String, String, SidebarRoute)]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .tracking(2.2)
-                    .foregroundStyle(AppTheme.textSecondary)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .tracking(1.6)
+                .foregroundStyle(AppTheme.textSecondary)
 
-                Spacer()
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(AppTheme.textMuted)
-            }
-            .padding(.horizontal, 4)
-
-            VStack(spacing: 8) {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+            VStack(spacing: 10) {
+                ForEach(items, id: \.0) { item in
                     NavItem(
                         title: item.0,
                         icon: item.1,
@@ -140,96 +127,70 @@ struct SidebarView: View {
         }
     }
 
-    private var docsRow: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "book.closed")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary)
-
-            Text("Docs")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(AppTheme.textSecondary)
-
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-    }
-
     private var footer: some View {
-        VStack(spacing: 0) {
-            Divider().overlay(AppTheme.border)
+        VStack(spacing: 12) {
+            Divider()
+                .overlay(AppTheme.border)
 
-            HStack(spacing: 14) {
-                Text("VERSIÓN")
-                    .font(.system(size: 12, weight: .semibold))
-                    .tracking(1.8)
-                    .foregroundStyle(AppTheme.textSecondary)
+            VStack(spacing: 10) {
+                statusCard(
+                    title: "BOT",
+                    versionOrStatus: botManager.isRunning ? "Activo" : "Detenido",
+                    isRunning: botManager.isRunning
+                )
 
-                Text("v2026.3.13")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(AppTheme.textPrimary)
-
-                Spacer()
-
-                Circle()
-                    .fill(botManager.isRunning ? AppTheme.greenStatus : AppTheme.redAccent)
-                    .frame(width: 16, height: 16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(botManager.isRunning ? AppTheme.greenStatus.opacity(0.50) : AppTheme.redAccent.opacity(0.50), lineWidth: 5)
-                    )
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 18)
-            .background(
-                RoundedRectangle(cornerRadius: 22)
-                    .fill(AppTheme.panelBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(AppTheme.border, lineWidth: 1)
-                    )
-            )
-            .padding(18)
-
-            Button {
-                botManager.toggle()
-            } label: {
-                HStack {
-                    Image(systemName: botManager.isRunning ? "stop.fill" : "play.fill")
-                    Text(botManager.isRunning ? "Apagar bot" : "Encender bot")
-                    Spacer()
-                }
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(AppTheme.textPrimary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 13)
-                .background(
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(botManager.isRunning ? AppTheme.redAccentSoft : AppTheme.panelBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(
-                                    botManager.isRunning ? AppTheme.redAccentBorder : AppTheme.border,
-                                    lineWidth: 1
-                                )
-                        )
+                statusCard(
+                    title: "RUNTIME",
+                    versionOrStatus: skillRuntimeManager.isRunning ? "Gateway activo" : "Gateway detenido",
+                    isRunning: skillRuntimeManager.isRunning
                 )
             }
-            .buttonStyle(.plain)
             .padding(.horizontal, 18)
+            .padding(.top, 14)
             .padding(.bottom, 18)
         }
     }
+
+    private func statusCard(title: String, versionOrStatus: String, isRunning: Bool) -> some View {
+        HStack(spacing: 14) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .tracking(1.8)
+                .foregroundStyle(AppTheme.textSecondary)
+
+            Text(versionOrStatus)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(AppTheme.textPrimary)
+
+            Spacer()
+
+            Circle()
+                .fill(isRunning ? AppTheme.greenStatus : AppTheme._redAccent)
+                .frame(width: 14, height: 14)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(AppTheme.panelBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(AppTheme.border, lineWidth: 1)
+                )
+        )
+    }
 }
+
 #Preview {
     SidebarView(
         selection: .constant(.chat),
         botManager: {
             let manager = BotProcessManager()
-            manager.isRunning = true
+            return manager
+        }(),
+        skillRuntimeManager: {
+            let manager = SkillRuntimeProcessManager()
             return manager
         }()
     )
-    .frame(height: 600)
 }

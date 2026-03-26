@@ -16,4 +16,7 @@ struct SkillItem: Identifiable, Hashable {
     let path: String
     let configPath: String
     let isActive: Bool
+    let hasExecutor: Bool
+    let hasConfig: Bool
+    let isReady: Bool
 }

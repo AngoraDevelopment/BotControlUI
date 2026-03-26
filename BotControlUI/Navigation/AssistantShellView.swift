@@ -8,9 +8,12 @@
 import SwiftUI
 internal import Combine
 
+import SwiftUI
+
 struct AssistantShellView: View {
     @StateObject private var appViewModel = AppViewModel()
     @StateObject private var botManager = BotProcessManager()
+    @StateObject private var skillRuntimeManager = SkillRuntimeProcessManager()
     @StateObject private var configStore = AppConfigStore()
     @State private var needsSetup = false
 
@@ -27,6 +30,8 @@ struct AssistantShellView: View {
         .onAppear {
             botManager.setConfigStore(configStore)
             needsSetup = shouldShowSetup()
+
+            
         }
     }
 
@@ -34,7 +39,8 @@ struct AssistantShellView: View {
         HStack(spacing: 0) {
             SidebarView(
                 selection: $appViewModel.selectedRoute,
-                botManager: botManager
+                botManager: botManager,
+                skillRuntimeManager: skillRuntimeManager
             )
 
             VStack(spacing: 0) {
@@ -42,18 +48,21 @@ struct AssistantShellView: View {
 
                 Group {
                     switch appViewModel.selectedRoute {
-                        case .chat:
-                            ChatView(configStore: configStore)
-                        case .summary:
-                            SummaryView(botManager: botManager)
-                        case .channels:
-                            ChannelsView(configStore: configStore)
-                        case .agent:
-                            AgentFilesView(configStore: configStore)
-                        case .skills:
-                            SkillsView()
-                        }
+                    case .chat:
+                        ChatView(configStore: configStore)
+                    case .summary:
+                        SummaryView(
+                            botManager: botManager,
+                            skillRuntimeManager: skillRuntimeManager
+                        )
+                    case .channels:
+                        ChannelsView(configStore: configStore)
+                    case .agent:
+                        AgentFilesView(configStore: configStore)
+                    case .skills:
+                        SkillsView()
                     }
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(AppTheme.shellBackground)
             }

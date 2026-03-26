@@ -96,21 +96,6 @@ struct SkillsView: View {
 
     private var topControls: some View {
         HStack(spacing: 12) {
-            Button("Browse Skills Store") {
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(AppTheme.redAccent)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(AppTheme.shellBackground.opacity(0.24))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(AppTheme.border, lineWidth: 1)
-                    )
-            )
-
             HStack {
                 TextField("Search skills", text: $vm.searchText)
                     .textFieldStyle(.plain)
@@ -174,6 +159,14 @@ struct SkillsView: View {
                     capsuleLabel(skill.folderName, foreground: AppTheme.textSecondary)
                     capsuleLabel(skill.isActive ? "active" : "inactive",
                                  foreground: skill.isActive ? AppTheme.greenStatus : AppTheme.textSecondary)
+                    capsuleLabel(skill.isReady ? "ready" : "incomplete",
+                                 foreground: skill.isReady ? AppTheme.greenStatus : AppTheme.redAccent)
+                }
+
+                HStack(spacing: 8) {
+                    miniFlag("SKILL.md", ok: true)
+                    miniFlag("config", ok: skill.hasConfig)
+                    miniFlag("executor", ok: skill.hasExecutor)
                 }
 
                 Text(skill.path)
@@ -216,5 +209,17 @@ struct SkillsView: View {
                             .stroke(AppTheme.border, lineWidth: 1)
                     )
             )
+    }
+
+    private func miniFlag(_ label: String, ok: Bool) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(ok ? AppTheme.greenStatus : AppTheme.redAccent)
+                .frame(width: 8, height: 8)
+
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppTheme.textSecondary)
+        }
     }
 }

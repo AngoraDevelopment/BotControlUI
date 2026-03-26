@@ -40,6 +40,10 @@ struct ChatView: View {
                         if !vm.errorMessage.isEmpty {
                             errorBubble(vm.errorMessage)
                         }
+
+                        Color.clear
+                            .frame(height: 1)
+                            .id("BOTTOM_ANCHOR")
                     }
                     .padding(.horizontal, 10)
                     .padding(.bottom, 22)
@@ -50,8 +54,14 @@ struct ChatView: View {
                 .onChange(of: vm.isThinking) { _, _ in
                     scrollToBottom(proxy)
                 }
-                .onAppear {
+                .onChange(of: vm.errorMessage) { _, _ in
                     scrollToBottom(proxy)
+                }
+                .onChange(of: vm.selectedChannel) { _, _ in
+                    scrollToBottom(proxy, animated: false)
+                }
+                .onAppear {
+                    scrollToBottom(proxy, animated: false)
                 }
             }
 
@@ -232,11 +242,11 @@ struct ChatView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(isUser ? "Tú" : vm.botName)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(AppTheme.textSecondary)
 
                 Text(message.text)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(AppTheme.textPrimary)
                     .textSelection(.enabled)
             }
@@ -313,13 +323,13 @@ struct ChatView: View {
         VStack(spacing: 0) {
             TextField(
                 vm.selectedChannel == .app
-                ? "Message \(vm.botName) (Enter to send)"
+                ? "Pregunta lo que quieras a \(vm.botName)"
                 : "La sesión de Telegram es solo lectura por ahora",
                 text: $vm.draft,
                 axis: .vertical
             )
             .textFieldStyle(.plain)
-            .font(.system(size: 16, weight: .medium))
+            .font(.system(size: 12, weight: .medium, design: .monospaced))
             .foregroundStyle(AppTheme.textPrimary)
             .padding(.horizontal, 18)
             .padding(.top, 18)
@@ -384,13 +394,20 @@ struct ChatView: View {
         )
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        if let last = vm.messages.last {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo(last.id, anchor: .bottom)
+    private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool = true) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            if animated {
+                withAnimation(.easeOut(duration: 0.22)) {
+                    proxy.scrollTo("BOTTOM_ANCHOR", anchor: .bottom)
                 }
+            } else {
+                proxy.scrollTo("BOTTOM_ANCHOR", anchor: .bottom)
             }
         }
     }
+}
+
+#Preview {
+    let configStore = AppConfigStore()
+    ChatView(configStore: configStore)
 }

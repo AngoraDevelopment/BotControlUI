@@ -13,7 +13,7 @@ struct TopBarView: View {
     var body: some View {
         HStack(spacing: 20) {
             HStack(spacing: 10) {
-                Text("OpenClaw")
+                Text("Oasis")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(AppTheme.textSecondary)
 
