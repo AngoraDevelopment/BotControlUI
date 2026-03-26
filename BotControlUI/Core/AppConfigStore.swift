@@ -9,6 +9,14 @@ import Foundation
 import SwiftUI
 internal import Combine
 
+struct RuntimeConfigFile: Codable {
+    let telegramBotToken: String
+    let allowedUserID: String
+    let ollamaModel: String
+    let ollamaUrl: String
+    let ollamaFallbackModels: [String]
+}
+
 @MainActor
 final class AppConfigStore: ObservableObject {
     @Published var config: AppConfig
@@ -29,6 +37,7 @@ final class AppConfigStore: ObservableObject {
     func saveAll() {
         saveConfig()
         saveToken()
+        saveRuntimeConfigFile()
     }
 
     func saveConfig() {
@@ -60,5 +69,30 @@ final class AppConfigStore: ObservableObject {
     private static func loadConfig(defaultsKey: String) -> AppConfig? {
         guard let data = UserDefaults.standard.data(forKey: defaultsKey) else { return nil }
         return try? JSONDecoder().decode(AppConfig.self, from: data)
+    }
+    
+    func saveRuntimeConfigFile() {
+        let runtimeConfig = RuntimeConfigFile(
+            telegramBotToken: telegramBotToken,
+            allowedUserID: config.telegram.allowedUserID,
+            ollamaModel: config.ollama.primaryModel,
+            ollamaUrl: "http://127.0.0.1:11434/api/chat",
+            ollamaFallbackModels: config.ollama.fallbackModels
+        )
+
+        let stateDirectory = "/Users/edgardoramos/telegram-ollama-bot/state"
+        let filePath = "\(stateDirectory)/runtime-config.json"
+
+        do {
+            try FileManager.default.createDirectory(
+                atPath: stateDirectory,
+                withIntermediateDirectories: true
+            )
+
+            let data = try JSONEncoder().encode(runtimeConfig)
+            try data.write(to: URL(fileURLWithPath: filePath))
+        } catch {
+            print("No se pudo guardar runtime-config.json: \(error.localizedDescription)")
+        }
     }
 }

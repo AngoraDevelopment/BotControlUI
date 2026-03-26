@@ -150,7 +150,7 @@ final class BotProcessManager: ObservableObject {
     var shortLogPreview: String {
         let trimmed = logs.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "Sin logs todavía." }
-        return String(trimmed.suffix(600))
+        return trimmed
     }
 
     private func attachReader(to pipe: Pipe, isError: Bool) {
