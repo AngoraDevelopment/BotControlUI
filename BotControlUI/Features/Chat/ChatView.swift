@@ -5,10 +5,18 @@
 //  Created by Edgardo Ramos on 3/19/26.
 //
 
+//
+//  ChatView.swift
+//  BotControlUI
+//
+//  Created by Edgardo Ramos on 3/19/26.
+//
+
 import SwiftUI
 
 struct ChatView: View {
     @StateObject private var vm: ChatViewModel
+    @State private var pendingScrollWorkItem: DispatchWorkItem?
 
     init(configStore: AppConfigStore) {
         _vm = StateObject(wrappedValue: ChatViewModel(configStore: configStore))
@@ -24,7 +32,7 @@ struct ChatView: View {
 
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 18) {
+                    LazyVStack(spacing: 18) {
                         if vm.isEmpty {
                             centerIntro
                                 .padding(.top, 52)
@@ -49,19 +57,19 @@ struct ChatView: View {
                     .padding(.bottom, 22)
                 }
                 .onChange(of: vm.messages.count) { _, _ in
-                    scrollToBottom(proxy)
+                    scheduleScrollToBottom(proxy, animated: true)
                 }
                 .onChange(of: vm.isThinking) { _, _ in
-                    scrollToBottom(proxy)
+                    scheduleScrollToBottom(proxy, animated: false)
                 }
                 .onChange(of: vm.errorMessage) { _, _ in
-                    scrollToBottom(proxy)
+                    scheduleScrollToBottom(proxy, animated: false)
                 }
                 .onChange(of: vm.selectedChannel) { _, _ in
-                    scrollToBottom(proxy, animated: false)
+                    scheduleScrollToBottom(proxy, animated: false)
                 }
                 .onAppear {
-                    scrollToBottom(proxy, animated: false)
+                    scheduleScrollToBottom(proxy, animated: false)
                 }
             }
 
@@ -227,7 +235,7 @@ struct ChatView: View {
     }
 
     private var messagesView: some View {
-        VStack(spacing: 14) {
+        LazyVStack(spacing: 14) {
             ForEach(vm.messages) { message in
                 messageBubble(message)
             }
@@ -248,7 +256,6 @@ struct ChatView: View {
                 Text(message.text)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(AppTheme.textPrimary)
-                    .textSelection(.enabled)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
@@ -394,15 +401,24 @@ struct ChatView: View {
         )
     }
 
+    private func scheduleScrollToBottom(_ proxy: ScrollViewProxy, animated: Bool) {
+        pendingScrollWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem {
+            scrollToBottom(proxy, animated: animated)
+        }
+
+        pendingScrollWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03, execute: workItem)
+    }
+
     private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool = true) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            if animated {
-                withAnimation(.easeOut(duration: 0.22)) {
-                    proxy.scrollTo("BOTTOM_ANCHOR", anchor: .bottom)
-                }
-            } else {
+        if animated {
+            withAnimation(.easeOut(duration: 0.16)) {
                 proxy.scrollTo("BOTTOM_ANCHOR", anchor: .bottom)
             }
+        } else {
+            proxy.scrollTo("BOTTOM_ANCHOR", anchor: .bottom)
         }
     }
 }

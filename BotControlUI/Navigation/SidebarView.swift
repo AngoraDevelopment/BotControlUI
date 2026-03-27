@@ -23,20 +23,18 @@ struct SidebarView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 26) {
                     navSection(
-                        title: "CHAT",
-                        items: [
-                            ("Chat", "message", SidebarRoute.chat)
-                        ]
-                    )
-
-                    navSection(
                         title: "CONTROL",
                         items: [
                             ("Resumen", "chart.bar", SidebarRoute.summary),
                             ("Canales", "link", SidebarRoute.channels)
                         ]
                     )
-
+                    navSection(
+                        title: "CHAT",
+                        items: [
+                            ("Chat", "message", SidebarRoute.chat)
+                        ]
+                    )
                     navSection(
                         title: "AGENTE",
                         items: [
@@ -44,7 +42,6 @@ struct SidebarView: View {
                             ("Habilidades", "bolt", SidebarRoute.skills)
                         ]
                     )
-
                     navSection(
                         title: "AJUSTES",
                         items: []
@@ -154,13 +151,13 @@ struct SidebarView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .tracking(1.8)
                 .foregroundStyle(AppTheme.textSecondary)
-
+            
             Text(versionOrStatus)
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(AppTheme.textPrimary)
-
+            
             Spacer()
-
+            
             Circle()
                 .fill(isRunning ? AppTheme.greenStatus : AppTheme._redAccent)
                 .frame(width: 14, height: 14)
@@ -180,7 +177,7 @@ struct SidebarView: View {
 
 #Preview {
     SidebarView(
-        selection: .constant(.chat),
+        selection: .constant(SidebarRoute.summary),
         botManager: {
             let manager = BotProcessManager()
             return manager

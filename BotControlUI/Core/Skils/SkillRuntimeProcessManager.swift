@@ -9,6 +9,9 @@ import Foundation
 import SwiftUI
 internal import Combine
 
+import Foundation
+import SwiftUI
+
 @MainActor
 final class SkillRuntimeProcessManager: ObservableObject {
     @Published var isRunning = false
@@ -20,9 +23,20 @@ final class SkillRuntimeProcessManager: ObservableObject {
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
 
+    private var pendingLogBuffer = ""
+    private var logFlushWorkItem: DispatchWorkItem?
+
     let workingDirectory = "/Users/edgardoramos/telegram-ollama-bot"
-    let nodePath = "/usr/local/Cellar/node@22/22.22.1_3/bin/node"
     let runtimeScriptPath = "/Users/edgardoramos/telegram-ollama-bot/skill-runtime/server.js"
+    let healthURL = URL(string: "http://127.0.0.1:4872/health")!
+
+    private(set) var ownsRunningProcess = false
+
+    deinit {
+        if ownsRunningProcess {
+            process?.terminate()
+        }
+    }
 
     func toggle() {
         isRunning ? stop() : start()
@@ -31,22 +45,39 @@ final class SkillRuntimeProcessManager: ObservableObject {
     func start() {
         guard !isRunning else { return }
 
+        if isRunningInPreview {
+            statusText = "Preview"
+            appendLogImmediately("ℹ️ Skill runtime desactivado dentro de Xcode Preview.\n")
+            return
+        }
+
+        Task {
+            let alreadyRunning = await checkIfRuntimeAlreadyRunning()
+
+            await MainActor.run {
+                if alreadyRunning {
+                    self.isRunning = true
+                    self.ownsRunningProcess = false
+                    self.statusText = "Activo"
+                    self.appendLogImmediately("ℹ️ Ya había un skill runtime corriendo en 127.0.0.1:4872.\n")
+                    return
+                }
+
+                self.startOwnedProcess()
+            }
+        }
+    }
+
+    private func startOwnedProcess() {
         guard FileManager.default.fileExists(atPath: workingDirectory) else {
-            appendLog("❌ No existe la carpeta del bot: \(workingDirectory)\n")
+            appendLogImmediately("❌ No existe la carpeta del bot: \(workingDirectory)\n")
             statusText = "Ruta inválida"
             lastError = "La carpeta del bot no existe."
             return
         }
 
-        guard FileManager.default.fileExists(atPath: nodePath) else {
-            appendLog("❌ No existe Node en: \(nodePath)\n")
-            statusText = "Node no encontrado"
-            lastError = "No se encontró Node en la ruta configurada."
-            return
-        }
-
         guard FileManager.default.fileExists(atPath: runtimeScriptPath) else {
-            appendLog("❌ No existe skill-runtime/server.js en: \(runtimeScriptPath)\n")
+            appendLogImmediately("❌ No existe skill-runtime/server.js en: \(runtimeScriptPath)\n")
             statusText = "Runtime no encontrado"
             lastError = "No se encontró server.js del skill runtime."
             return
@@ -59,7 +90,7 @@ final class SkillRuntimeProcessManager: ObservableObject {
         task.executableURL = URL(fileURLWithPath: "/bin/zsh")
         task.arguments = [
             "-lc",
-            "cd \(quoted(workingDirectory)) && \(quoted(nodePath)) \(quoted(runtimeScriptPath))"
+            "cd \(quoted(workingDirectory)) && /usr/bin/env node \(quoted(runtimeScriptPath))"
         ]
         task.standardOutput = outPipe
         task.standardError = errPipe
@@ -73,7 +104,10 @@ final class SkillRuntimeProcessManager: ObservableObject {
         process = task
         logs = ""
         lastError = nil
+        pendingLogBuffer = ""
+        logFlushWorkItem?.cancel()
         statusText = "Iniciando..."
+        ownsRunningProcess = true
 
         attachReader(to: outPipe, isError: false)
         attachReader(to: errPipe, isError: true)
@@ -82,7 +116,10 @@ final class SkillRuntimeProcessManager: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
 
+                self.flushPendingLogs()
+
                 self.isRunning = false
+                self.ownsRunningProcess = false
                 self.stdoutPipe?.fileHandleForReading.readabilityHandler = nil
                 self.stderrPipe?.fileHandleForReading.readabilityHandler = nil
                 self.process = nil
@@ -91,10 +128,10 @@ final class SkillRuntimeProcessManager: ObservableObject {
 
                 if proc.terminationStatus == 0 {
                     self.statusText = "Detenido"
-                    self.appendLog("\n🛑 Skill runtime finalizado correctamente.\n")
+                    self.appendLogImmediately("\n🛑 Skill runtime finalizado correctamente.\n")
                 } else {
                     self.statusText = "Error"
-                    self.appendLog("\n⚠️ Skill runtime terminó con código \(proc.terminationStatus).\n")
+                    self.appendLogImmediately("\n⚠️ Skill runtime terminó con código \(proc.terminationStatus).\n")
                 }
             }
         }
@@ -103,33 +140,68 @@ final class SkillRuntimeProcessManager: ObservableObject {
             try task.run()
             isRunning = true
             statusText = "Activo"
-            appendLog("🚀 Skill runtime iniciado en: \(workingDirectory)\n")
-            appendLog("🟢 Skill runtime gateway activo en http://127.0.0.1:4872\n")
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                guard let self, self.isRunning else { return }
+                self.appendLogImmediately("🟢 Skill runtime gateway activo en http://127.0.0.1:4872\n")
+            }
         } catch {
             isRunning = false
+            ownsRunningProcess = false
             statusText = "Error al iniciar"
             lastError = error.localizedDescription
-            appendLog("❌ No se pudo iniciar el skill runtime: \(error.localizedDescription)\n")
+            appendLogImmediately("❌ No se pudo iniciar el skill runtime: \(error.localizedDescription)\n")
         }
     }
 
     func stop() {
-        guard let process else { return }
+        guard let process else {
+            // Si no lo poseemos pero detectamos uno corriendo, solo refrescamos estado local
+            isRunning = false
+            statusText = "Detenido"
+            ownsRunningProcess = false
+            return
+        }
 
         if process.isRunning {
             statusText = "Deteniendo..."
-            appendLog("🛑 Deteniendo skill runtime...\n")
+            appendLogImmediately("🛑 Deteniendo skill runtime...\n")
             process.terminate()
         } else {
             isRunning = false
             statusText = "Detenido"
+            ownsRunningProcess = false
         }
+    }
+
+    func stopIfOwned() {
+        guard ownsRunningProcess else { return }
+        stop()
     }
 
     var shortLogPreview: String {
         let trimmed = logs.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "Sin logs todavía." }
-        return String(trimmed.suffix(700))
+        return String(trimmed.suffix(1400))
+    }
+
+    private var isRunningInPreview: Bool {
+        ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    }
+
+    private func checkIfRuntimeAlreadyRunning() async -> Bool {
+        var request = URLRequest(url: healthURL)
+        request.timeoutInterval = 0.7
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse {
+                return http.statusCode == 200
+            }
+            return false
+        } catch {
+            return false
+        }
     }
 
     private func attachReader(to pipe: Pipe, isError: Bool) {
@@ -139,14 +211,40 @@ final class SkillRuntimeProcessManager: ObservableObject {
 
             if let text = String(data: data, encoding: .utf8), !text.isEmpty {
                 Task { @MainActor in
-                    self?.appendLog(text, prefixError: isError)
+                    self?.bufferLog(text, prefixError: isError)
                     self?.updateStatusFromLog(text)
                 }
             }
         }
     }
 
-    private func appendLog(_ text: String, prefixError: Bool = false) {
+    private func bufferLog(_ text: String, prefixError: Bool = false) {
+        let prefix = prefixError ? "[stderr] " : ""
+        pendingLogBuffer += prefix + text
+
+        logFlushWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.flushPendingLogs()
+        }
+
+        logFlushWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: workItem)
+    }
+
+    private func flushPendingLogs() {
+        guard !pendingLogBuffer.isEmpty else { return }
+
+        logs += pendingLogBuffer
+        pendingLogBuffer = ""
+
+        if logs.count > 140_000 {
+            logs = String(logs.suffix(90_000))
+        }
+    }
+
+    private func appendLogImmediately(_ text: String, prefixError: Bool = false) {
         let prefix = prefixError ? "[stderr] " : ""
         logs += prefix + text
 

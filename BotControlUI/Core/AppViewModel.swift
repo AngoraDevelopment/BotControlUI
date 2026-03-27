@@ -11,5 +11,5 @@ internal import Combine
 
 @MainActor
 final class AppViewModel: ObservableObject {
-    @Published var selectedRoute: SidebarRoute = .chat
+    @Published var selectedRoute: SidebarRoute = .summary
 }

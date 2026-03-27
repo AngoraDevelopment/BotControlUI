@@ -34,12 +34,27 @@ struct SummaryView: View {
         }
         .background(AppTheme.shellBackground)
         .onAppear {
-            checkOllamaStatus()
-            loadActiveSkillsCount()
+            loadCurrentModel()
             loadMemoryStatus()
             loadSessionsCount()
-            loadCurrentModel()
-            loadLastSkillExecution()
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
+                loadLastSkillExecution()
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                loadActiveSkillsCount()
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+                checkOllamaStatus()
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                if !skillRuntimeManager.isRunning {
+                    skillRuntimeManager.start()
+                }
+            }
 
             refreshTimer?.invalidate()
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in
@@ -54,6 +69,8 @@ struct SummaryView: View {
         .onDisappear {
             refreshTimer?.invalidate()
             refreshTimer = nil
+
+            skillRuntimeManager.stopIfOwned()
         }
     }
 
