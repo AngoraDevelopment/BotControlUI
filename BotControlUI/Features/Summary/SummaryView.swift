@@ -69,8 +69,6 @@ struct SummaryView: View {
         .onDisappear {
             refreshTimer?.invalidate()
             refreshTimer = nil
-
-            skillRuntimeManager.stopIfOwned()
         }
     }
 
